@@ -38,100 +38,140 @@
  */
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #define TARGET_X (0)
 #define TARGET_Y (0)
 
-//boolean isBlocked(uint32_t *grid, uint32_t x, uint32_t y) {
-//  uint32_t index = y*x + x;
-//  // Bounds check for index
+typedef struct {
+  int8_t x;
+  int8_t y;
+} Coord_t;
 
-//  if (grid[index]) {
-//    return true;
-//  } else {
-//    return false;
-//  }
-//}
+bool isBlocked(int8_t *grid, Coord_t *coord) {
+  uint32_t index = coord->y*coord->x + coord->x;
 
-//void setSquare(*grid, x, y value) {
+  return (grid[index] == 0);
+}
 
-//}
+// Target is 0 so just square coordinates to get distance
+uint32_t distanceToOrigin(Coord_t *coord) {
+  // Technically can still overflow if x close to 64k
+  return ((coord->x*coord->x) + (coord->y*coord->y));
+}
 
-//void pushCoordinate();
-//void popCoordinate();
+#define NUM_SURROUND (8)
 
-//// Target is 0
-//uint64_t distanceToOrigin(uint32_t x, uint32_t y) {
-//  return (uint32_t)(x*x + y*y);
-//}
+//Check if coordinate is within bounds
+bool validCoord(Coord_t *coord, int8_t x_max, int8_t y_max) {
+  return ((0 <= coord->x) && (coord->x < x_max) && (0 <= coord->y) && (coord->y < y_max));
+}
 
-//void getSurroundingCoordinates(uint32_t x, uint32_t y, uint32_t*surrounding_x, uint32_t* surrounding_y) {
-//  // Have the array t
-//}
+/**
+ * getSurroundingCoordinates
+ *
+ * Get the surrounding coordinates for a given coordinate
+ * Compare against max x,y
+ */
+uint32_t getSurroundingCoordinates(Coord_t* current, Coord_t* surrounding, int8_t x_max, int8_t y_max) {
+  uint32_t numValid = 0;
+  Coord_t surroundTransform[NUM_SURROUND] = {
+    { //left
+      .x = -1,
+      .y = 0,
+    },
+    { // up
+      .x = 0,
+      .y = -1,
+    },
+    { // Right
+      .x = 1,
+      .y = 0,
+    },
+    { // down
+      .x = 0,
+      .y = 1,
+    },
+    { //up left
+      .x = -1,
+      .y = -1,
+    },
+    { //up right
+      .x = 1,
+      .y = -1,
+    },
+    { //down left
+      .x = -1,
+      .y = 1,
+    },
+    { //down right
+      .x = 1,
+      .y = 1,
+    },
+  };
 
-//int removeBlockedCooridinates(uint32_t *surrounding_x, uint32_t *surrounding_y, uint32_t *valid_x, uint32_t *valid_y) {
-//  int num_valid = 0;
-//  for (int i = 0; i < 8; i++) {
-//    if (isBlocked(x_array[i], y_array[i])
-//        // add to valid_x, valid_y
-//  }
+  for (uint32_t i = 0; i < NUM_SURROUND; i++) {
+    Coord_t transform = surroundTransform[i];
+    Coord_t newCoord = {
+      .x = (current->x + transform.x),
+      .y = (current->y + transform.y),
+    };
 
-//  return num_valid
-//}
+    if (validCoord(&newCoord, x_max, y_max)) {
+      surrounding[numValid].x = (current->x + transform.x);
+      surrounding[numValid].y = (current->y + transform.y);
+      numValid++;
+    }
+  }
 
-uint32_t find_path(uint8_t *grid, uint32_t x_size, uint32_t y_size) {
-//  uint32_t start_x = x_size - 1;
-//  uint32_t start_y = y_size - 1;
-//  uint32_t end_x = 0;
-//  uint32_t end_y = 0;
+  return numValid;
+}
 
-//  uint32_t surrounding_x[8];
+uint32_t find_path(int8_t *grid, uint16_t x_size, uint16_t y_size) {
+  Coord_t current = {
+    .x = x_size - 1,
+    .y = x_size - 1,
+  };
 
-//  uint32_t surrounding_y[8];
+  Coord_t surrounding[NUM_SURROUND];
+  Coord_t valid[NUM_SURROUND];
+  uint32_t cost[NUM_SURROUND];
 
-//  uint32_t valid_x[8];
-//  uint32_t valid_y[8];
+  /* // Destination is 0, so want to subtract and get there */
+  /* while((start_x != 0) && (start_y != 0)) { */
 
-//  uint32_t cost[8];
+  /*   // From a given current location */
+  /*   // Get all surrounding coordinates */
+  /*   getSurroundingCoordinates(start_x, start_y, &surrounding_x, &surrounding_y) */
+  /*   // Remove coordinates that are blocked */
+  /*   int num_valid_coordinates = remove_blocked_coordinates(&surrounding_x, &surrounding_y, &valid_x, &valid_y) */
+  /*   // Calculate the cost of coordinates that are unblocked */
+  /*   for (int i = 0; i < num_valid_coordinates; i++) { */
+  /*     cost[i] = distanceToTarget(valid_x[i], valid_y[i]); */
+  /*   } */
+  /*   // Move towards the coordinate with lowest cost/distance */
+  /*   int min_index = 0; */
+  /*   for (int i = 1; i < num_valid_coordinates; i++) { */
+  /*     if (cost[min_index] > cost[i]) { */
+  /*       min_index = i; */
+  /*     } */
+  /*   } */
+  /*   // If moving towards the square is bad, discount that square by adding cost it */
+  /*   start_x = valid_x[min_index]; */
+  /*   start_y = valid_x[min_index]; */
 
-//  //
-//  // 1,1; 1,0; 0,1; -1,0; 1
+  /*   // Pop back to previous square and choose the next best cost */
 
-//  // Destination is 0, so want to subtract and get there
-//  while((start_x != 0) && (start_y != 0)) {
+  /* } */
 
-//    // From a given current location
-//    // Get all surrounding coordinates
-//    getSurroundingCoordinates(start_x, start_y, &surrounding_x, &surrounding_y)
-//    // Remove coordinates that are blocked
-//    int num_valid_coordinates = remove_blocked_coordinates(&surrounding_x, &surrounding_y, &valid_x, &valid_y)
-//    // Calculate the cost of coordinates that are unblocked
-//    for (int i = 0; i < num_valid_coordinates; i++) {
-//      cost[i] = distanceToTarget(valid_x[i], valid_y[i]);
-//    }
-//    // Move towards the coordinate with lowest cost/distance
-//    int min_index = 0;
-//    for (int i = 1; i < num_valid_coordinates; i++) {
-//      if (cost[min_index] > cost[i]) {
-//        min_index = i;
-//      }
-//    }
-//    // If moving towards the square is bad, discount that square by adding cost it
-//    start_x = valid_x[min_index];
-//    start_y = valid_x[min_index];
-
-//    // Pop back to previous square and choose the next best cost
-
-//  }
-
-    return 0;
+  return 0;
 }
 
 typedef struct {
-  uint8_t *grid;
-  uint8_t x_size;
-  uint8_t y_size;
   uint32_t answer;
+  int8_t x_size;
+  int8_t y_size;
+  uint8_t *grid;
 } TestCase_t;
 
 #define TEST0_X (5)
