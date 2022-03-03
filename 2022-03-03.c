@@ -44,13 +44,14 @@
 #define TARGET_X (0)
 #define TARGET_Y (0)
 
+#define STUCK_COST_INCREASE (0x80000000)
+
 typedef struct {
   int8_t x;
   int8_t y;
 } Coord_t;
 
 typedef struct {
-  Coord_t coord;
   uint32_t cost;
   bool visited;
 } CostMapNode_t;
@@ -87,7 +88,7 @@ void fillCostMap(CostMapNode_t *costMap, uint8_t *grid, int8_t x_max, int8_t y_m
 
       uint32_t index = coordToIndex(&node, x_max);
       if (isBlocked(grid, &node, x_max)) {
-        costMap[index].cost = 0xFFFF;
+        costMap[index].cost = UINT32_MAX;
       } else {
         costMap[index].cost = distanceToOrigin(&node);
       }
@@ -95,13 +96,17 @@ void fillCostMap(CostMapNode_t *costMap, uint8_t *grid, int8_t x_max, int8_t y_m
   }
 }
 
+uint32_t getNodeCost(Coord_t *node, CostMapNode_t *costMap, int8_t x_max) {
+  return costMap[coordToIndex(node, x_max)].cost;
+}
+
 /**
- * getSurroundingCoordinates
+ * getNextNode
  *
  * Get the surrounding coordinates for a given coordinate
  * Compare against max x,y
  */
-uint32_t getSurroundingCost(Coord_t* current, CostMapNode_t * costMap, uint8_t *grid, int8_t x_max, int8_t y_max) {
+bool getNextNode(Coord_t* current, Coord_t *next, CostMapNode_t * costMap, uint8_t *grid, int8_t x_max, int8_t y_max) {
   uint32_t numValid = 0;
   Coord_t surroundTransform[NUM_SURROUND] = {
     { //left
@@ -138,6 +143,11 @@ uint32_t getSurroundingCost(Coord_t* current, CostMapNode_t * costMap, uint8_t *
     },
   };
 
+  // Current Cost
+  bool newNode = false;
+  uint32_t currentIndex = coordToIndex(current, x_max);
+  uint32_t currentCost = costMap[currentIndex].cost;
+
   for (uint32_t i = 0; i < NUM_SURROUND; i++) {
     Coord_t transform = surroundTransform[i];
     Coord_t newCoord = {
@@ -146,14 +156,23 @@ uint32_t getSurroundingCost(Coord_t* current, CostMapNode_t * costMap, uint8_t *
     };
 
     if (validCoord(&newCoord, x_max, y_max) && !isBlocked(grid, &newCoord, x_max)) {
-      CostMapNode_t *node = &costMap[coordToIndex(&newCoord, x_max)];
-      // Valid surrounding coordinates, calculate cost
-      node->cost = distanceToOrigin(&newCoord);
+      uint32_t newCost = getNodeCost(&newCoord, costMap, x_max);
+      if (newCost < currentCost) {
+        next->x = newCoord.x;
+        next->y = newCoord.y;
+        newNode = true;
+      }
       numValid++;
     }
   }
 
-  return numValid;
+  // If surrounding nodes are not less cost, we're stuck. Increase current node
+  // cost to not visit it again.
+  if (!newNode) {
+    costMap[currentIndex].cost |= STUCK_COST_INCREASE;
+  }
+
+  return newNode;
 }
 
 void printCostMap(CostMapNode_t *costMap, int8_t x_size, int8_t y_size) {
@@ -171,6 +190,7 @@ uint32_t find_path(uint8_t *grid, int8_t x_size, int8_t y_size) {
     .x = x_size - 1,
     .y = x_size - 1,
   };
+  Coord_t next;
 
   CostMapNode_t *costMap = malloc(sizeof(CostMapNode_t) * x_size * y_size);
 
@@ -179,7 +199,6 @@ uint32_t find_path(uint8_t *grid, int8_t x_size, int8_t y_size) {
   // Debug
   printCostMap(costMap, x_size, y_size);
 
-  /* // Destination is 0, so want to subtract and get there */
   /* while((start_x != 0) && (start_y != 0)) { */
 
   /*   // From a given current location */
