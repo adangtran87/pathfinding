@@ -79,7 +79,7 @@
 //  return num_valid
 //}
 
-//uint32_t find_fewest_steps(uint32_t *grid, uint32_t x_size, uint32_t y_size) {
+uint32_t find_path(uint8_t *grid, uint32_t x_size, uint32_t y_size) {
 //  uint32_t start_x = x_size - 1;
 //  uint32_t start_y = y_size - 1;
 //  uint32_t end_x = 0;
@@ -124,9 +124,65 @@
 
 //  }
 
-//}
+    return 0;
+}
+
+typedef struct {
+  uint8_t *grid;
+  uint8_t x_size;
+  uint8_t y_size;
+  uint32_t answer;
+} TestCase_t;
+
+#define TEST0_X (5)
+#define TEST0_Y (5)
+uint8_t grid0[TEST0_X*TEST0_Y] = {
+  0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0,
+};
+
+// Expected to take diagonal
+TestCase_t test0 = {
+  .grid = grid0,
+  .x_size = TEST0_X,
+  .y_size = TEST0_Y,
+  .answer = 4,
+};
+
+#define TEST1_X (7)
+#define TEST1_Y (7)
+uint8_t grid1[7*7] = {
+  0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 1, 1, 1, 0,
+  0, 0, 0, 1, 0, 0, 0,
+  0, 0, 0, 1, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0,
+};
+
+// Expected to take diagonal
+TestCase_t test1 = {
+  .grid = grid1,
+  .x_size = TEST1_X,
+  .y_size = TEST1_Y,
+  .answer = 9,
+};
+
+#define NUM_TEST_CASES (2)
+TestCase_t *testCases[NUM_TEST_CASES] = {
+  &test0,
+  &test1,
+};
 
 int main() {
-  printf("Hello World");
+  for(int i = 0; i < NUM_TEST_CASES; i++) {
+    TestCase_t *test = testCases[i];
+    uint32_t numSteps = find_path(test->grid, test->x_size, test->y_size);
+    printf("Number of steps: %d\n", numSteps);
+  }
   return 0;
 }
