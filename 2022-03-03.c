@@ -41,9 +41,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#define TARGET_X (0)
-#define TARGET_Y (0)
-
+#define BLOCK_COST (UINT32_MAX)
 #define STUCK_COST (UINT32_MAX-1)
 
 typedef struct {
@@ -88,7 +86,7 @@ void fillCostMap(CostMapNode_t *costMap, uint8_t *grid, int8_t x_max, int8_t y_m
 
       uint32_t index = coordToIndex(&node, x_max);
       if (isBlocked(grid, &node, x_max)) {
-        costMap[index].cost = UINT32_MAX;
+        costMap[index].cost = BLOCK_COST;
       } else {
         costMap[index].cost = distanceToOrigin(&node);
       }
@@ -124,12 +122,6 @@ void stackPopNode() {
   free(prev_head);
 }
 
-void freeStack() {
-  while (head != NULL) {
-    stackPopNode();
-  }
-}
-
 void printStack() {
   while (head != NULL) {
     printf("%d,%d; ", head->coord.x, head->coord.y);
@@ -153,7 +145,7 @@ uint32_t countStack() {
  * Get the surrounding coordinates for a given coordinate
  * Compare against max x,y
  */
-bool getNextNode(Coord_t* current, CostMapNode_t * costMap, uint8_t *grid, int8_t x_max, int8_t y_max) {
+void getNextNode(Coord_t* current, CostMapNode_t * costMap, uint8_t *grid, int8_t x_max, int8_t y_max) {
   uint32_t numValid = 0;
   Coord_t surroundTransform[NUM_SURROUND] = {
     { //left
@@ -222,8 +214,6 @@ bool getNextNode(Coord_t* current, CostMapNode_t * costMap, uint8_t *grid, int8_
   } else {
     stackAddNode(&minCoord);
   }
-
-  return newNode;
 }
 
 void printCostMap(CostMapNode_t *costMap, int8_t x_size, int8_t y_size) {
@@ -340,11 +330,13 @@ int main() {
     printf("\n");
     TestCase_t *test = testCases[i];
     uint32_t numSteps = find_path(test->grid, test->x_size, test->y_size);
+    printStack();
+    printf("\n");
     if (numSteps == test->answer) {
       printf("Number of steps: %d\n", numSteps);
-      printStack();
     } else {
       printf("numSteps %d does not match answer: %d\n", numSteps, test->answer);
+      return -1;
     }
   }
   return 0;
