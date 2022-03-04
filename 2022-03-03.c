@@ -130,11 +130,21 @@ void freeStack() {
   }
 }
 
-void print_stack() {
+void printStack() {
   while (head != NULL) {
     printf("%d,%d; ", head->coord.x, head->coord.y);
     stackPopNode();
   }
+}
+
+uint32_t countStack() {
+  uint32_t numEntries = 0;
+  CoordStackNode_t *node = head->next;
+  while(node != NULL) {
+    node = node->next;
+    numEntries++;
+  }
+  return numEntries;
 }
 
 /**
@@ -250,7 +260,7 @@ uint32_t find_path(uint8_t *grid, int8_t x_size, int8_t y_size) {
   printCostMap(costMap, x_size, y_size);
   free(costMap);
 
-  return 0;
+  return countStack();
 }
 
 typedef struct {
@@ -315,7 +325,7 @@ TestCase_t test2 = {
   .grid = grid2,
   .x_size = TEST2_X,
   .y_size = TEST2_Y,
-  .answer = 9,
+  .answer = 7,
 };
 
 TestCase_t *testCases[] = {
@@ -330,8 +340,12 @@ int main() {
     printf("\n");
     TestCase_t *test = testCases[i];
     uint32_t numSteps = find_path(test->grid, test->x_size, test->y_size);
-    printf("Number of steps: %d\n", numSteps);
-    print_stack();
+    if (numSteps == test->answer) {
+      printf("Number of steps: %d\n", numSteps);
+      printStack();
+    } else {
+      printf("numSteps %d does not match answer: %d\n", numSteps, test->answer);
+    }
   }
   return 0;
 }
