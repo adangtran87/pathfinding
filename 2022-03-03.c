@@ -44,7 +44,7 @@
 #define TARGET_X (0)
 #define TARGET_Y (0)
 
-#define STUCK_COST_INCREASE (0x80000000)
+#define STUCK_COST (UINT32_MAX-1)
 
 typedef struct {
   int8_t x;
@@ -100,13 +100,50 @@ uint32_t getNodeCost(Coord_t *node, CostMapNode_t *costMap, int8_t x_max) {
   return costMap[coordToIndex(node, x_max)].cost;
 }
 
+typedef struct CoordStackNode{
+  Coord_t coord;
+  struct CoordStackNode *next;
+} CoordStackNode_t;
+
+CoordStackNode_t *head = NULL;
+
+void stackAddNode(Coord_t *coord) {
+  CoordStackNode_t *newNode = malloc(sizeof(CoordStackNode_t));
+
+  newNode->coord.x = coord->x;
+  newNode->coord.y = coord->y;
+  newNode->next = head;
+  /* printf("Adding %d,%d\n", newNode->coord.x, newNode->coord.y); */
+  head = newNode;
+}
+
+void stackPopNode() {
+  CoordStackNode_t *prev_head = head;
+  head = head->next;
+  /* printf("Popping %d,%d\n", prev_head->coord.x, prev_head->coord.y); */
+  free(prev_head);
+}
+
+void freeStack() {
+  while (head != NULL) {
+    stackPopNode();
+  }
+}
+
+void print_stack() {
+  while (head != NULL) {
+    printf("%d,%d; ", head->coord.x, head->coord.y);
+    stackPopNode();
+  }
+}
+
 /**
  * getNextNode
  *
  * Get the surrounding coordinates for a given coordinate
  * Compare against max x,y
  */
-bool getNextNode(Coord_t* current, Coord_t *next, CostMapNode_t * costMap, uint8_t *grid, int8_t x_max, int8_t y_max) {
+bool getNextNode(Coord_t* current, CostMapNode_t * costMap, uint8_t *grid, int8_t x_max, int8_t y_max) {
   uint32_t numValid = 0;
   Coord_t surroundTransform[NUM_SURROUND] = {
     { //left
@@ -147,19 +184,20 @@ bool getNextNode(Coord_t* current, Coord_t *next, CostMapNode_t * costMap, uint8
   bool newNode = false;
   uint32_t currentIndex = coordToIndex(current, x_max);
   uint32_t currentCost = costMap[currentIndex].cost;
+  Coord_t minCoord;
+  Coord_t newCoord;
 
   for (uint32_t i = 0; i < NUM_SURROUND; i++) {
     Coord_t transform = surroundTransform[i];
-    Coord_t newCoord = {
-      .x = (current->x + transform.x),
-      .y = (current->y + transform.y),
-    };
+    newCoord.x = (current->x + transform.x);
+    newCoord.y = (current->y + transform.y);
 
     if (validCoord(&newCoord, x_max, y_max) && !isBlocked(grid, &newCoord, x_max)) {
       uint32_t newCost = getNodeCost(&newCoord, costMap, x_max);
       if (newCost < currentCost) {
-        next->x = newCoord.x;
-        next->y = newCoord.y;
+        currentCost = newCost;
+        minCoord.x = newCoord.x;
+        minCoord.y = newCoord.y;
         newNode = true;
       }
       numValid++;
@@ -169,7 +207,10 @@ bool getNextNode(Coord_t* current, Coord_t *next, CostMapNode_t * costMap, uint8
   // If surrounding nodes are not less cost, we're stuck. Increase current node
   // cost to not visit it again.
   if (!newNode) {
-    costMap[currentIndex].cost |= STUCK_COST_INCREASE;
+    costMap[currentIndex].cost = STUCK_COST;
+    stackPopNode();
+  } else {
+    stackAddNode(&minCoord);
   }
 
   return newNode;
@@ -186,11 +227,11 @@ void printCostMap(CostMapNode_t *costMap, int8_t x_size, int8_t y_size) {
 }
 
 uint32_t find_path(uint8_t *grid, int8_t x_size, int8_t y_size) {
-  Coord_t current = {
+  Coord_t start = {
     .x = x_size - 1,
     .y = x_size - 1,
   };
-  Coord_t next;
+  stackAddNode(&start);
 
   CostMapNode_t *costMap = malloc(sizeof(CostMapNode_t) * x_size * y_size);
 
@@ -199,32 +240,14 @@ uint32_t find_path(uint8_t *grid, int8_t x_size, int8_t y_size) {
   // Debug
   printCostMap(costMap, x_size, y_size);
 
-  /* while((start_x != 0) && (start_y != 0)) { */
+  Coord_t *current = &head->coord;
+  while ((current->x != 0) || (current->y != 0)) {
+    getNextNode(current, costMap, grid, x_size, y_size);
+    current = &head->coord;
+    /* printf("Current: %d,%d\n", current->x, current->y); */
+  }
 
-  /*   // From a given current location */
-  /*   // Get all surrounding coordinates */
-  /*   getSurroundingCoordinates(start_x, start_y, &surrounding_x, &surrounding_y) */
-  /*   // Remove coordinates that are blocked */
-  /*   int num_valid_coordinates = remove_blocked_coordinates(&surrounding_x, &surrounding_y, &valid_x, &valid_y) */
-  /*   // Calculate the cost of coordinates that are unblocked */
-  /*   for (int i = 0; i < num_valid_coordinates; i++) { */
-  /*     cost[i] = distanceToTarget(valid_x[i], valid_y[i]); */
-  /*   } */
-  /*   // Move towards the coordinate with lowest cost/distance */
-  /*   int min_index = 0; */
-  /*   for (int i = 1; i < num_valid_coordinates; i++) { */
-  /*     if (cost[min_index] > cost[i]) { */
-  /*       min_index = i; */
-  /*     } */
-  /*   } */
-  /*   // If moving towards the square is bad, discount that square by adding cost it */
-  /*   start_x = valid_x[min_index]; */
-  /*   start_y = valid_x[min_index]; */
-
-  /*   // Pop back to previous square and choose the next best cost */
-
-  /* } */
-
+  printCostMap(costMap, x_size, y_size);
   free(costMap);
 
   return 0;
@@ -275,17 +298,40 @@ TestCase_t test1 = {
   .answer = 9,
 };
 
-#define NUM_TEST_CASES (2)
-TestCase_t *testCases[NUM_TEST_CASES] = {
+#define TEST2_X (7)
+#define TEST2_Y (7)
+uint8_t grid2[7*7] = {
+  0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 1, 0, 1, 0,
+  0, 0, 0, 1, 0, 0, 0,
+  0, 0, 0, 1, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0,
+};
+
+// Expected to take diagonal
+TestCase_t test2 = {
+  .grid = grid2,
+  .x_size = TEST2_X,
+  .y_size = TEST2_Y,
+  .answer = 9,
+};
+
+TestCase_t *testCases[] = {
   &test0,
   &test1,
+  &test2,
 };
 
 int main() {
-  for(int i = 0; i < NUM_TEST_CASES; i++) {
+  for(int i = 0; i < (sizeof(testCases) / sizeof(TestCase_t*)); i++) {
+  /* for(int i = 0; i < 1; i++) { */
+    printf("\n");
     TestCase_t *test = testCases[i];
     uint32_t numSteps = find_path(test->grid, test->x_size, test->y_size);
     printf("Number of steps: %d\n", numSteps);
+    print_stack();
   }
   return 0;
 }
